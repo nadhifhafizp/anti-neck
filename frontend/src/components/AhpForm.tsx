@@ -1,124 +1,172 @@
 'use client';
+
 import { useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { User, Dumbbell, Accessibility } from 'lucide-react';
 
-export default function AhpForm({ onResult }: { onResult: (res: any) => void }) {
+interface LocationIntensity {
+  name: string;
+  value: number;
+}
+
+export default function AhpForm({ onResult }: { onResult: (recommendation: string) => void }) {
+  const [npm, setNpm] = useState('');
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([])  ;
+  // State baru untuk menyimpan intensitas masing-masing lokasi
+  const [intensities, setIntensities] = useState<LocationIntensity[]>([]);
+  const [activity, setActivity] = useState('Duduk Tanpa Sandaran');
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    npm: '',
-    locations: [] as string[],
-    intensity: 5,
-    trigger: ''
-  });
 
-  const locationsOption = [
-    { id: 'Leher', label: 'Leher', icon: '👤' },
-    { id: 'Bahu', label: 'Bahu', icon: '💪' },
-    { id: 'Punggung', label: 'Punggung', icon: '🧘' },
+  const locations = [
+    { id: 'Leher', icon: <User className="w-6 h-6" /> },
+    { id: 'Bahu', icon: <Dumbbell className="w-6 h-6" /> },
+    { id: 'Punggung', icon: <Accessibility className="w-6 h-6" /> },
   ];
 
-  const handleLocationToggle = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      locations: prev.locations.includes(id)
-        ? prev.locations.filter(l => l !== id)
-        : [...prev.locations, id]
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const result = await response.json();
-      onResult(result);
-    } catch (error) {
-      console.error("Gagal mengambil data:", error);
-    } finally {
-      setLoading(false);
+  const toggleLocation = (id: string) => {
+    if (selectedLocations.includes(id)) {
+      setSelectedLocations(selectedLocations.filter((item) => item !== id));
+      setIntensities(intensities.filter((item) => item.name !== id));
+    } else {
+      setSelectedLocations([...selectedLocations, id]);
+      setIntensities([...intensities, { name: id, value: 5 }]);
     }
   };
 
+  const handleIntensityChange = (name: string, val: number) => {
+    setIntensities(intensities.map(item => 
+      item.name === name ? { ...item, value: val } : item
+    ));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (intensities.length === 0) return; // Validasi tambahan
+  
+  setLoading(true);
+
+  try {
+    // Mencari lokasi dengan intensitas tertinggi
+    const priorityLocation = intensities.reduce((prev, current) => 
+      (prev.value > current.value) ? prev : current
+    );
+
+    const response = await fetch('http://localhost:8080/api/recomend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        npm,
+        location: priorityLocation.name,
+        intensity: priorityLocation.value,
+        activity,
+      }),
+    });
+
+    // AMAN: Cek dulu apakah responnya OK (status 200)
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server Error: ${errorText}`);
+    }
+
+    // Gunakan text() dulu untuk memastikan tidak ada karakter ganda
+    const rawData = await response.text();
+    const data = JSON.parse(rawData); // Error posisi 4 biasanya terjadi di sini jika JSON rusak
+
+    if (data.recommendation) {
+      onResult(data.recommendation);
+    }
+  } catch (error) {
+    console.error('Fetch/Parsing Error:', error);
+    alert("Terjadi kesalahan pada respon server. Pastikan backend berjalan normal.");
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-8">
-      {/* Input NPM */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Nomor Pokok Mahasiswa (NPM)</label>
-        <input 
-          type="text" required
-          placeholder="Contoh: 2210631170XXX" 
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-          onChange={(e) => setFormData({...formData, npm: e.target.value})}
-        />
-      </div>
-
-      {/* Pilihan Lokasi dengan Card */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-3">Area yang Terasa Pegal (Bisa pilih {'>'}1)</label>
-        <div className="grid grid-cols-3 gap-3">
-          {locationsOption.map((loc) => (
-            <button
-              key={loc.id}
-              type="button"
-              onClick={() => handleLocationToggle(loc.id)}
-              className={`py-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                formData.locations.includes(loc.id)
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'
-              }`}
-            >
-              <span className="text-2xl">{loc.icon}</span>
-              <span className="text-xs font-bold">{loc.label}</span>
-            </button>
-          ))}
+    <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">Nomor Pokok Mahasiswa (NPM)</label>
+          <input
+            type="text"
+            className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-indigo-500 focus:ring-0 transition-all outline-none"
+            placeholder="Masukkan NPM Anda"
+            value={npm}
+            onChange={(e) => setNpm(e.target.value)}
+            required
+          />
         </div>
-      </div>
 
-      {/* Slider Intensitas */}
-      <div>
-        <div className="flex justify-between mb-2">
-          <label className="text-sm font-semibold text-slate-700">Tingkat Nyeri</label>
-          <span className="text-sm font-bold text-indigo-600">{formData.intensity}/10</span>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-4">Area yang Terasa Pegal (Bisa pilih {'>'}1)</label>
+          <div className="grid grid-cols-3 gap-4">
+            {locations.map((loc) => (
+              <button
+                key={loc.id}
+                type="button"
+                onClick={() => toggleLocation(loc.id)}
+                className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all ${
+                  selectedLocations.includes(loc.id)
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-inner'
+                    : 'border-slate-100 hover:border-indigo-200 text-slate-400'
+                }`}
+              >
+                {loc.icon}
+                <span className="mt-2 font-semibold text-xs">{loc.id}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <input 
-          type="range" min="1" max="10" 
-          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-          value={formData.intensity}
-          onChange={(e) => setFormData({...formData, intensity: parseInt(e.target.value)})}
-        />
-        <div className="flex justify-between text-[10px] text-slate-400 mt-1 uppercase font-bold">
-          <span>Ringan</span>
-          <span>Sedang</span>
-          <span>Berat</span>
-        </div>
-      </div>
 
-      {/* Pemicu */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Aktivitas Dominan Hari Ini</label>
-        <select 
-          required
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500"
-          onChange={(e) => setFormData({...formData, trigger: e.target.value})}
+        {/* SLIDER DINAMIS: Muncul untuk setiap lokasi yang dipilih */}
+        {intensities.length > 0 && (
+          <div className="space-y-6 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+            <label className="block text-sm font-bold text-slate-700 underline">Tingkat Nyeri per Area:</label>
+            {intensities.map((item) => (
+              <div key={item.name} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-indigo-600 uppercase tracking-wider">{item.name}</span>
+                  <span className="text-sm font-bold text-indigo-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                    {item.value}/10
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={item.value}
+                  onChange={(e) => handleIntensityChange(item.name, parseInt(e.target.value))}
+                  className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">Aktivitas Dominan Hari Ini</label>
+          <select
+            className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-indigo-500 transition-all outline-none"
+            value={activity}
+            onChange={(e) => setActivity(e.target.value)}
+          >
+            <option>Duduk Tanpa Sandaran</option>
+            <option>Menatap HP/Laptop Terlalu Lama</option>
+            <option>Membawa Beban Berat (Tas Punggung)</option>
+            <option>Posisi Tidur yang Salah</option>
+          </select>
+        </div>
+
+        <Button
+          type="submit"
+          disabled={loading || selectedLocations.length === 0}
+          className="w-full py-7 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-1"
         >
-          <option value="">Pilih Aktivitas...</option>
-          <option value="Nunduk">Menatap HP/Laptop Terlalu Lama</option>
-          <option value="Duduk">Duduk Tanpa Sandaran</option>
-          <option value="Berat">Membawa Beban Berat (Tas)</option>
-        </select>
-      </div>
-
-      <button 
-        type="submit" 
-        disabled={loading || formData.locations.length === 0}
-        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95"
-      >
-        {loading ? 'Menganalisis...' : 'Dapatkan Rekomendasi'}
-      </button>
-    </form>
+          {loading ? 'Memproses AHP...' : 'Dapatkan Rekomendasi'}
+        </Button>
+      </form>
+    </Card>
   );
 }

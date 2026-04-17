@@ -56,7 +56,7 @@ func main() {
 
 	// 4. Perutean (Routing)
 	// Kita membungkus handler agar bisa menerima instance 'db'
-	r.POST("/api/recommend", func(c *gin.Context) {
+	r.POST("/api/recomend", func(c *gin.Context) {
 		controllers.ProcessAHP(c, db)
 	})
 
