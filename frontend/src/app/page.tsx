@@ -49,7 +49,7 @@ export default function Dashboard() {
                 </div>
                 {/* Viewport AR */}
                 <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-                  <ArView recommendation={result.recommendation} />
+                  <ArView recommendation={result} />
                 </div>
               </div>
             ) : (
