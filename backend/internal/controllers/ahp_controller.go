@@ -18,16 +18,17 @@ func ProcessAHP(c *gin.Context, db *sql.DB) {
 		return
 	}
 
-	// 2. Panggil Service untuk hitung rekomendasi (Multi-Location)
-	recommendation, score := services.CalculateAHP(input.Locations, input.Intensity, input.Trigger)
+	// 2. Panggil Service untuk hitung rekomendasi (Sekarang hanya 1 lokasi dominan)
+	recommendation, score := services.CalculateAHP(input.Location, input.Intensity, input.Activity)
 
-	// 3. Simpan hasil ke database Supabase (Penting untuk data penelitian Skripsi)
+	// 3. Simpan hasil ke database Supabase
+	// Catatan: Jika query ini error di terminal, pastikan kolom di tabel Supabase kamu
+	// juga bernama 'location' (tipe text) dan 'activity' (tipe text)
 	_, err := db.Exec(
-		"INSERT INTO user_assessments (npm, locations, intensity, trigger_factor, recommendation, score) VALUES ($1, $2, $3, $4, $5, $6)",
-		input.NPM, input.Locations, input.Intensity, input.Trigger, recommendation, score,
+		"INSERT INTO user_assessments (npm, location, intensity, activity, recommendation, score) VALUES ($1, $2, $3, $4, $5, $6)",
+		input.NPM, input.Location, input.Intensity, input.Activity, recommendation, score,
 	)
 	if err != nil {
-		// Log error tapi tetap kirim response ke user
 		c.Error(err)
 	}
 

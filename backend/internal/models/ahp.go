@@ -1,12 +1,12 @@
 package models
 
-import "github.com/lib/pq"
+// Hapus import "github.com/lib/pq" karena kita tidak pakai array database lagi di struct ini
 
 type AHPRequest struct {
-	NPM       string         `json:"npm" binding:"required"`
-	Locations pq.StringArray `json:"locations" binding:"required"` // Gunakan pq.StringArray untuk Postgres
-	Intensity int            `json:"intensity" binding:"required"`
-	Trigger   string         `json:"trigger" binding:"required"`
+	NPM       string `json:"npm" binding:"required"`
+	Location  string `json:"location" binding:"required"` // Diubah menjadi String tunggal
+	Intensity int    `json:"intensity" binding:"required"`
+	Activity  string `json:"activity" binding:"required"` // Diubah dari "trigger" menjadi "activity"
 }
 
 type AHPResponse struct {

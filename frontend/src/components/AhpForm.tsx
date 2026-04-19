@@ -52,16 +52,17 @@ export default function AhpForm({ onResult }: { onResult: (recommendation: strin
       (prev.value > current.value) ? prev : current
     );
 
-    const response = await fetch('http://localhost:8080/api/recomend', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        npm,
-        location: priorityLocation.name,
-        intensity: priorityLocation.value,
-        activity,
-      }),
-    });
+    // Di dalam AhpForm.tsx
+  const response = await fetch('http://localhost:8080/api/recommend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      npm,
+      location: priorityLocation.name,
+      intensity: priorityLocation.value,
+      activity,
+    }),
+  });
 
     // AMAN: Cek dulu apakah responnya OK (status 200)
     if (!response.ok) {

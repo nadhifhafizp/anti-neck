@@ -7,8 +7,8 @@ type AreaScore struct {
 	Score float64
 }
 
-// Pastikan baris ini mengembalikan (string, float64)
-func CalculateAHP(locations []string, intensity int, trigger string) (string, float64) {
+// Parameter diubah ke string biasa (location dan activity)
+func CalculateAHP(location string, intensity int, activity string) (string, float64) {
 	const (
 		W_Location  = 0.634
 		W_Intensity = 0.106
@@ -23,16 +23,17 @@ func CalculateAHP(locations []string, intensity int, trigger string) (string, fl
 
 	for i := range areas {
 		var rK1 float64 = 1.0
-		for _, loc := range locations {
-			if (loc == "Leher" && areas[i].Name == "Levator Scapulae") ||
-				(loc == "Bahu" && areas[i].Name == "Upper Trapezius") ||
-				(loc == "Punggung" && areas[i].Name == "Quadratus Lumborum") {
-				rK1 = 10.0
-			}
+
+		// Cek langsung kecocokan 1 lokasi (tanpa perlu for loop array)
+		if (location == "Leher" && areas[i].Name == "Levator Scapulae") ||
+			(location == "Bahu" && areas[i].Name == "Upper Trapezius") ||
+			(location == "Punggung" && areas[i].Name == "Quadratus Lumborum") {
+			rK1 = 10.0
 		}
+
 		rK2 := float64(intensity)
 		rK3 := 5.0
-		if trigger != "" {
+		if activity != "" {
 			rK3 = 10.0
 		}
 
@@ -43,6 +44,5 @@ func CalculateAHP(locations []string, intensity int, trigger string) (string, fl
 		return areas[i].Score > areas[j].Score
 	})
 
-	// Mengembalikan nama area DAN skornya
 	return areas[0].Name, areas[0].Score
 }
