@@ -40,50 +40,43 @@ export default function AhpForm({ onResult }: { onResult: (recommendation: strin
     ));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (intensities.length === 0) return; // Validasi tambahan
-  
-  setLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (intensities.length === 0) return; 
+    
+    setLoading(true);
 
-  try {
-    // Mencari lokasi dengan intensitas tertinggi
-    const priorityLocation = intensities.reduce((prev, current) => 
-      (prev.value > current.value) ? prev : current
-    );
+    try {
+      // HAPUS LOGIKA REDUCE DI SINI. Biarkan AHP di Backend yang memikirkan siapa yang menang!
+      
+      const response = await fetch('http://localhost:8080/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          npm,
+          locations: intensities, // Kunci Overpower AHP: Kirim SEMUA data array keluhan!
+          activity,
+        }),
+      });
 
-    // Di dalam AhpForm.tsx
-  const response = await fetch('http://localhost:8080/api/recommend', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      npm,
-      location: priorityLocation.name,
-      intensity: priorityLocation.value,
-      activity,
-    }),
-  });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server Error: ${errorText}`);
+      }
 
-    // AMAN: Cek dulu apakah responnya OK (status 200)
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server Error: ${errorText}`);
+      const rawData = await response.text();
+      const data = JSON.parse(rawData); 
+
+      if (data.recommendation) {
+        onResult(data.recommendation);
+      }
+    } catch (error) {
+      console.error('Fetch/Parsing Error:', error);
+      alert("Terjadi kesalahan pada respon server.");
+    } finally {
+      setLoading(false);
     }
-
-    // Gunakan text() dulu untuk memastikan tidak ada karakter ganda
-    const rawData = await response.text();
-    const data = JSON.parse(rawData); // Error posisi 4 biasanya terjadi di sini jika JSON rusak
-
-    if (data.recommendation) {
-      onResult(data.recommendation);
-    }
-  } catch (error) {
-    console.error('Fetch/Parsing Error:', error);
-    alert("Terjadi kesalahan pada respon server. Pastikan backend berjalan normal.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">

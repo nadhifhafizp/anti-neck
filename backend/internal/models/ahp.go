@@ -1,12 +1,15 @@
 package models
 
-// Hapus import "github.com/lib/pq" karena kita tidak pakai array database lagi di struct ini
+// Struct bantuan untuk membaca isi array dari frontend
+type LocationInput struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
 
 type AHPRequest struct {
-	NPM       string `json:"npm" binding:"required"`
-	Location  string `json:"location" binding:"required"` // Diubah menjadi String tunggal
-	Intensity int    `json:"intensity" binding:"required"`
-	Activity  string `json:"activity" binding:"required"` // Diubah dari "trigger" menjadi "activity"
+	NPM       string          `json:"npm" binding:"required"`
+	Locations []LocationInput `json:"locations" binding:"required"` // Diubah kembali jadi Array
+	Activity  string          `json:"activity" binding:"required"`
 }
 
 type AHPResponse struct {

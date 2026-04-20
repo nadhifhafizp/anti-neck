@@ -4,7 +4,9 @@ import (
 	"anti-neck/internal/models"
 	"anti-neck/internal/services"
 	"database/sql"
+	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,27 +14,40 @@ import (
 func ProcessAHP(c *gin.Context, db *sql.DB) {
 	var input models.AHPRequest
 
-	// 1. Bind JSON input dari frontend
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
 		return
 	}
 
-	// 2. Panggil Service untuk hitung rekomendasi (Sekarang hanya 1 lokasi dominan)
-	recommendation, score := services.CalculateAHP(input.Location, input.Intensity, input.Activity)
+	// Proses AHP
+	recommendation, score, _, topIntensity := services.CalculateAHP(input.Locations, input.Activity)
 
-	// 3. Simpan hasil ke database Supabase
-	// Catatan: Jika query ini error di terminal, pastikan kolom di tabel Supabase kamu
-	// juga bernama 'location' (tipe text) dan 'activity' (tipe text)
-	_, err := db.Exec(
-		"INSERT INTO user_assessments (npm, location, intensity, activity, recommendation, score) VALUES ($1, $2, $3, $4, $5, $6)",
-		input.NPM, input.Location, input.Intensity, input.Activity, recommendation, score,
-	)
+	// Gabungkan semua keluhan jadi teks (Misal: "Leher, Bahu")
+	var allLocations []string
+	for _, loc := range input.Locations {
+		allLocations = append(allLocations, loc.Name)
+	}
+	joinedLocations := strings.Join(allLocations, ", ")
+
+	// SIMPAN KE SUPABASE (Menggunakan nama kolom yang baru saja kita Reset)
+	query := `INSERT INTO user_assessments (
+		npm,               -- ganti jika namanya berbeda
+		location,          -- ganti jika namanya berbeda (misal: lokasi)
+		intensity,         -- ganti jika namanya berbeda
+		trigger_factor,    -- ganti jika namanya berbeda (misal: activity)
+		recommendation,    -- UBAH INI sesuai Supabase (misal: rekomendasi, recomendation)
+		score              -- ganti jika namanya berbeda
+	) VALUES ($1, $2, $3, $4, $5, $6)`
+
+	// Eksekusi ke database
+	_, err := db.Exec(query, input.NPM, joinedLocations, topIntensity, input.Activity, recommendation, score)
+
 	if err != nil {
-		c.Error(err)
+		log.Println("❌ GAGAL SIMPAN KE SUPABASE:", err)
+	} else {
+		log.Println("✅ DATA BERHASIL DISIMPAN!")
 	}
 
-	// 4. Kirim response balik ke frontend
 	c.JSON(http.StatusOK, models.AHPResponse{
 		NPM:            input.NPM,
 		Recommendation: recommendation,
