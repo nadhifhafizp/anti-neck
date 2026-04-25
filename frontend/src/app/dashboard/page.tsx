@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
-import AhpForm from '../components/AhpForm';
-import ArView from '../components/ArView';
+import AhpForm from '../../components/AhpForm';
+import ArView from '../../components/ArView';
 
 export default function Dashboard() {
   const [result, setResult] = useState<any>(null);
