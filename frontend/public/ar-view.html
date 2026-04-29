@@ -10,13 +10,12 @@
         // --- KOMPONEN OVERPOWER: SELALU DI ATAS ---
         AFRAME.registerComponent('always-on-top', {
             init: function () {
-                // Menunggu sampai teks selesai dimuat
                 this.el.addEventListener('textfontset', () => {
                     const mesh = this.el.getObject3D('mesh');
                     if (mesh) {
-                        mesh.material.depthTest = false; // Matikan deteksi tabrakan kedalaman
+                        mesh.material.depthTest = false; 
                         mesh.material.transparent = true;
-                        mesh.renderOrder = 9999; // Paksa gambar paling terakhir
+                        mesh.renderOrder = 9999; 
                     }
                 });
             }
@@ -65,13 +64,12 @@
     </a-scene>
 
     <script>
-        // ... (Logika URL Params & Drag tetap sama seperti kodemu sebelumnya) ...
         const urlParams = new URLSearchParams(window.location.search);
         const recommendation = urlParams.get('rec') || 'Tidak Diketahui';
         const point = document.getElementById('therapy-point');
         const label = document.getElementById('therapy-label');
 
-        // Posisi Y untuk label dibuat lebih tinggi (2.8) agar tidak menabrak kepala/rahang
+        // === POSISI 6 TITIK TERAPI ===
         if (recommendation === 'Levator Scapulae') {
             point.setAttribute('position', '0 2.2 0.2'); 
             label.setAttribute('position', '0 2.7 0'); 
@@ -81,10 +79,66 @@
         } else if (recommendation === 'Quadratus Lumborum') {
             point.setAttribute('position', '0 1.6 0.2'); 
             label.setAttribute('position', '0 2.7 0'); 
+        } else if (recommendation === 'Splenius Capitis') {
+            point.setAttribute('position', '0 2.35 0.15'); 
+            label.setAttribute('position', '0 2.85 0'); 
+        } else if (recommendation === 'Rhomboid Major') {
+            point.setAttribute('position', '0 1.85 0.25'); 
+            label.setAttribute('position', '0 2.5 0'); 
+        } else if (recommendation === 'Erector Spinae') {
+            point.setAttribute('position', '0 1.4 0.2'); 
+            label.setAttribute('position', '0 2.7 0'); 
         }
+        
         label.setAttribute('value', "TITIK: " + recommendation);
         
-        // ... (Sisanya: Logika Drag to Rotate tetap sama) ...
+        // === LOGIKA ROTASI YANG DIPERBAIKI (ANTI-MIRING) ===
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        const modelWrapper = document.getElementById('model-wrapper');
+
+        // Mouse Events (Untuk Komputer)
+        document.addEventListener('mousedown', (e) => { 
+            isDragging = true; 
+            previousMousePosition = { x: e.offsetX, y: e.offsetY }; 
+        });
+        document.addEventListener('mouseup', () => { isDragging = false; });
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.offsetX - previousMousePosition.x;
+                const currentRotation = modelWrapper.getAttribute('rotation');
+                
+                // HANYA sumbu Y yang diubah agar model berputar ke kiri/kanan. 
+                // Sumbu X dan Z dikunci ke 0 agar badan selalu tegak lurus.
+                modelWrapper.setAttribute('rotation', {
+                    x: 0, 
+                    y: currentRotation.y + deltaX * 0.8, 
+                    z: 0  
+                });
+                previousMousePosition = { x: e.offsetX, y: e.offsetY };
+            }
+        });
+
+        // Touch Events (Untuk Layar Sentuh / HP)
+        document.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.touches[0].pageX, y: e.touches[0].pageY };
+        });
+        document.addEventListener('touchend', () => { isDragging = false; });
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                const deltaX = e.touches[0].pageX - previousMousePosition.x;
+                const currentRotation = modelWrapper.getAttribute('rotation');
+                
+                // Sama seperti Mouse, hanya sumbu Y yang dirotasi
+                modelWrapper.setAttribute('rotation', {
+                    x: 0,
+                    y: currentRotation.y + deltaX * 0.8,
+                    z: 0
+                });
+                previousMousePosition = { x: e.touches[0].pageX, y: e.touches[0].pageY };
+            }
+        });
     </script>
 </body>
 </html>

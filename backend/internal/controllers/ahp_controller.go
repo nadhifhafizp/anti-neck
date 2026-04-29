@@ -3,55 +3,62 @@ package controllers
 import (
 	"anti-neck/internal/models"
 	"anti-neck/internal/services"
-	"database/sql"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-func ProcessAHP(c *gin.Context, db *sql.DB) {
-	var input models.AHPRequest
+type AHPController struct {
+	DB *gorm.DB
+}
 
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
+// Konstruktor untuk menyuntikkan koneksi database ke dalam Controller
+func NewAHPController(db *gorm.DB) *AHPController {
+	return &AHPController{DB: db}
+}
+
+func (ctrl *AHPController) Recommend(c *gin.Context) {
+	var req models.AHPRequest
+
+	// 1. Bind JSON Input dari Frontend
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format input tidak sesuai: " + err.Error()})
 		return
 	}
 
-	// Proses AHP
-	recommendation, score, _, topIntensity := services.CalculateAHP(input.Locations, input.Activity)
+	// 2. Hitung menggunakan algoritma AHP di Services
+	// Pastikan return value dari services.CalculateAHP ada 4: nama otot, skor, lokasi dominan, dan intensitas.
+	bestOtot, maxScore, dominantLoc, maxIntensity := services.CalculateAHP(req.Locations, req.Activity)
 
-	// Gabungkan semua keluhan jadi teks (Misal: "Leher, Bahu")
-	var allLocations []string
-	for _, loc := range input.Locations {
-		allLocations = append(allLocations, loc.Name)
+	// 3. Siapkan objek data untuk disimpan ke Database
+	dbRecord := models.AHPResult{
+		NPM:                req.NPM,
+		AktivitasPemicu:    req.Activity,
+		LokasiDominan:      dominantLoc,
+		IntensitasMaksimal: maxIntensity,
+		RekomendasiOtot:    bestOtot,
+		SkorAHP:            maxScore,
 	}
-	joinedLocations := strings.Join(allLocations, ", ")
 
-	// SIMPAN KE SUPABASE (Menggunakan nama kolom yang baru saja kita Reset)
-	query := `INSERT INTO user_assessments (
-		npm,               -- ganti jika namanya berbeda
-		location,          -- ganti jika namanya berbeda (misal: lokasi)
-		intensity,         -- ganti jika namanya berbeda
-		trigger_factor,    -- ganti jika namanya berbeda (misal: activity)
-		recommendation,    -- UBAH INI sesuai Supabase (misal: rekomendasi, recomendation)
-		score              -- ganti jika namanya berbeda
-	) VALUES ($1, $2, $3, $4, $5, $6)`
-
-	// Eksekusi ke database
-	_, err := db.Exec(query, input.NPM, joinedLocations, topIntensity, input.Activity, recommendation, score)
-
-	if err != nil {
-		log.Println("❌ GAGAL SIMPAN KE SUPABASE:", err)
+	// 4. Simpan ke Database PostgreSQL menggunakan GORM
+	if ctrl.DB != nil {
+		if err := ctrl.DB.Create(&dbRecord).Error; err != nil {
+			// Jika gagal simpan ke DB, log error di terminal, tapi tetap lanjutkan proses agar user tidak error
+			log.Printf("Gagal menyimpan riwayat AHP ke database untuk NPM %s: %v\n", req.NPM, err)
+		} else {
+			log.Printf("Berhasil menyimpan data AHP untuk NPM %s ke database.\n", req.NPM)
+		}
 	} else {
-		log.Println("✅ DATA BERHASIL DISIMPAN!")
+		log.Println("Peringatan: Koneksi database tidak ditemukan, data tidak disimpan.")
 	}
 
+	// 5. Kembalikan Response ke Frontend
 	c.JSON(http.StatusOK, models.AHPResponse{
-		NPM:            input.NPM,
-		Recommendation: recommendation,
-		Score:          score,
-		Status:         "Success",
+		NPM:            req.NPM,
+		Recommendation: bestOtot,
+		Score:          maxScore,
+		Status:         "success",
 	})
 }

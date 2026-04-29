@@ -26,6 +26,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-black text-slate-800">Analisis Keluhan</h1>
             <p className="text-slate-500 text-sm">Masukkan detail pegal Anda untuk mendapatkan titik terapi yang akurat menggunakan metode AHP.</p>
           </div>
+          {/* Menerima seluruh objek data hasil AHP */}
           <AhpForm onResult={(res) => setResult(res)} />
         </div>
 
@@ -39,17 +40,30 @@ export default function Dashboard() {
           <div className="relative group">
             {result ? (
               <div className="space-y-4">
-                {/* Alert Hasil */}
-                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xl">✨</div>
-                  <div>
-                    <p className="text-xs font-bold text-emerald-600 uppercase tracking-tighter">Rekomendasi Utama</p>
-                    <h3 className="text-xl font-black text-emerald-900">{result.recommendation}</h3>
+                {/* Alert Hasil - Update untuk menampilkan Skor AHP */}
+                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xl">✨</div>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-600 uppercase tracking-tighter">Rekomendasi Utama</p>
+                      {/* Pastikan mengambil .recommendation dari objek result */}
+                      <h3 className="text-xl font-black text-emerald-900">{result.recommendation}</h3>
+                    </div>
                   </div>
+                  
+                  {/* Menampilkan Skor Eigenvector AHP dalam bentuk % (Hanya untuk UI Skripsi) */}
+                  {result.score && (
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-emerald-500 uppercase">Bobot AHP</p>
+                      <p className="text-xl font-black text-emerald-700">{(result.score * 100).toFixed(1)}%</p>
+                    </div>
+                  )}
                 </div>
+
                 {/* Viewport AR */}
                 <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-                  <ArView recommendation={result} />
+                  {/* Pastikan hanya mengirimkan string nama ke Iframe AR */}
+                  <ArView recommendation={result.recommendation} />
                 </div>
               </div>
             ) : (

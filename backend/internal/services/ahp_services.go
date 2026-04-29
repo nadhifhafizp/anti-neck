@@ -12,55 +12,220 @@ type AreaScore struct {
 	Score     float64
 }
 
-// Menerima array lokasi, dan mengembalikan 4 nilai (untuk disimpan ke DB nantinya)
+// 1. Fungsi Menghitung Bobot Prioritas (Eigenvector) dari Matriks
+func CalculateAHPWeights(matrix [][]float64) []float64 {
+	n := len(matrix)
+	colSums := make([]float64, n)
+
+	// Hitung jumlah setiap kolom
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			colSums[i] += matrix[j][i]
+		}
+	}
+
+	// Normalisasi dan hitung rata-rata baris (Bobot Prioritas)
+	weights := make([]float64, n)
+	for i := 0; i < n; i++ {
+		sumRow := 0.0
+		for j := 0; j < n; j++ {
+			if colSums[j] > 0 {
+				sumRow += matrix[i][j] / colSums[j]
+			}
+		}
+		weights[i] = sumRow / float64(n)
+	}
+
+	return weights
+}
+
+// 2. Fungsi Menghitung Consistency Ratio (CR) - Opsional untuk logging saat sidang
+func CalculateCR(matrix [][]float64, weights []float64) float64 {
+	n := len(matrix)
+	lambdaMax := 0.0
+
+	for i := 0; i < n; i++ {
+		rowSum := 0.0
+		for j := 0; j < n; j++ {
+			rowSum += matrix[i][j] * weights[j]
+		}
+		if weights[i] > 0 {
+			lambdaMax += rowSum / weights[i]
+		}
+	}
+	lambdaMax = lambdaMax / float64(n)
+	ci := (lambdaMax - float64(n)) / (float64(n) - 1)
+
+	// RI berdasarkan Thomas L. Saaty (Ordo 6 = 1.24)
+	riValues := map[int]float64{1: 0.0, 2: 0.0, 3: 0.58, 4: 0.90, 5: 1.12, 6: 1.24}
+	ri := riValues[n]
+
+	if ri == 0 {
+		return 0
+	}
+	return ci / ri
+}
+
+// 3. Fungsi Utama Controller AHP (Sesuai signature proyek Anda)
 func CalculateAHP(locations []models.LocationInput, activity string) (string, float64, string, int) {
+	// Bobot Kriteria Utama AHP (Didapat dari literatur)
 	const (
 		W_Location  = 0.634
 		W_Intensity = 0.106
 		W_Trigger   = 0.260
 	)
 
-	// Inisialisasi 3 alternatif otot
+	// 6 Alternatif Titik Terapi
 	areas := []AreaScore{
 		{Name: "Levator Scapulae", Location: "Leher", Score: 0},
+		{Name: "Splenius Capitis", Location: "Leher", Score: 0},
 		{Name: "Upper Trapezius", Location: "Bahu", Score: 0},
+		{Name: "Rhomboid Major", Location: "Bahu", Score: 0},
 		{Name: "Quadratus Lumborum", Location: "Punggung", Score: 0},
+		{Name: "Erector Spinae", Location: "Punggung", Score: 0},
 	}
 
-	// PROSES AHP: Hitung skor untuk SETIAP area
-	for i := range areas {
-		var rK1 float64 = 0.0 // Rating Kriteria 1 (Lokasi)
-		var rK2 float64 = 0.0 // Rating Kriteria 2 (Intensitas)
-
-		// Cek apakah area ini termasuk yang dipilih oleh user
-		for _, loc := range locations {
-			if loc.Name == areas[i].Location {
-				rK1 = 10.0               // Lokasi valid/terpilih
-				rK2 = float64(loc.Value) // Mengambil nilai intensitas spesifiknya (1-10)
+	// 1. Proses Input Form User
+	dominantLoc := ""
+	maxIntensity := 0
+	for _, loc := range locations {
+		// Pasangkan nilai intensitas (1-10) ke alternatif yang sesuai lokasinya
+		for i := range areas {
+			if areas[i].Location == loc.Name {
 				areas[i].Intensity = loc.Value
-				break
 			}
 		}
-
-		// Jika tidak dipilih user, lewati, biarkan skornya 0
-		if rK1 == 0 {
-			continue
+		// Cari lokasi paling sakit untuk memicu matriks K1
+		if loc.Value > maxIntensity {
+			maxIntensity = loc.Value
+			dominantLoc = loc.Name
 		}
-
-		rK3 := 5.0
-		if activity != "" {
-			rK3 = 10.0
-		}
-
-		// PERHITUNGAN GLOBAL AHP
-		areas[i].Score = (rK1 * W_Location) + (rK2 * W_Intensity) + (rK3 * W_Trigger)
 	}
 
-	// PERANKINGAN AHP (Overpower-nya di sini, mencari pemenang otomatis)
-	sort.Slice(areas, func(i, j int) bool {
+	// 2. MATRIKS K1: LOKASI (Ordo 6x6)
+	var matrixLocation [][]float64
+	switch dominantLoc {
+	case "Leher":
+		matrixLocation = [][]float64{
+			{1.0, 1.0, 3.0, 3.0, 5.0, 5.0},                 // Levator
+			{1.0, 1.0, 3.0, 3.0, 5.0, 5.0},                 // Splenius
+			{1 / 3.0, 1 / 3.0, 1.0, 1.0, 3.0, 3.0},         // Trapezius
+			{1 / 3.0, 1 / 3.0, 1.0, 1.0, 3.0, 3.0},         // Rhomboid
+			{1 / 5.0, 1 / 5.0, 1 / 3.0, 1 / 3.0, 1.0, 1.0}, // QL
+			{1 / 5.0, 1 / 5.0, 1 / 3.0, 1 / 3.0, 1.0, 1.0}, // Erector
+		}
+	case "Bahu":
+		matrixLocation = [][]float64{
+			{1.0, 1.0, 1 / 3.0, 1 / 3.0, 2.0, 2.0},
+			{1.0, 1.0, 1 / 3.0, 1 / 3.0, 2.0, 2.0},
+			{3.0, 3.0, 1.0, 1.0, 4.0, 4.0},
+			{3.0, 3.0, 1.0, 1.0, 4.0, 4.0},
+			{1 / 2.0, 1 / 2.0, 1 / 4.0, 1 / 4.0, 1.0, 1.0},
+			{1 / 2.0, 1 / 2.0, 1 / 4.0, 1 / 4.0, 1.0, 1.0},
+		}
+	case "Punggung":
+		matrixLocation = [][]float64{
+			{1.0, 1.0, 1 / 3.0, 1 / 3.0, 1 / 5.0, 1 / 5.0},
+			{1.0, 1.0, 1 / 3.0, 1 / 3.0, 1 / 5.0, 1 / 5.0},
+			{3.0, 3.0, 1.0, 1.0, 1 / 3.0, 1 / 3.0},
+			{3.0, 3.0, 1.0, 1.0, 1 / 3.0, 1 / 3.0},
+			{5.0, 5.0, 3.0, 3.0, 1.0, 1.0},
+			{5.0, 5.0, 3.0, 3.0, 1.0, 1.0},
+		}
+	default: // Fallback Netral
+		matrixLocation = [][]float64{{1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}}
+	}
+	weightsLocation := CalculateAHPWeights(matrixLocation)
+
+	// 3. MATRIKS K2: INTENSITAS NYERI (Dinamis dari input form rasio 1-10)
+	nAlt := len(areas)
+	matrixIntensity := make([][]float64, nAlt)
+	for i := 0; i < nAlt; i++ {
+		matrixIntensity[i] = make([]float64, nAlt)
+		for j := 0; j < nAlt; j++ {
+			valI := float64(areas[i].Intensity)
+			valJ := float64(areas[j].Intensity)
+
+			if valI == 0 && valJ == 0 {
+				matrixIntensity[i][j] = 1.0
+			} else if valJ == 0 {
+				matrixIntensity[i][j] = 9.0
+			} else if valI == 0 {
+				matrixIntensity[i][j] = 1.0 / 9.0
+			} else {
+				ratio := valI / valJ
+				if ratio > 9 {
+					ratio = 9.0
+				}
+				if ratio < 1.0/9.0 {
+					ratio = 1.0 / 9.0
+				}
+				matrixIntensity[i][j] = ratio
+			}
+		}
+	}
+	weightsIntensity := CalculateAHPWeights(matrixIntensity)
+
+	// 4. MATRIKS K3: AKTIVITAS PEMICU (Pemecah kondisi seri antar otot)
+	var matrixTrigger [][]float64
+	switch activity {
+	case "Menunduk": // Menatap HP/Laptop Terlalu Lama (Fokus ke Splenius & Trapezius)
+		matrixTrigger = [][]float64{
+			{1.0, 1 / 3.0, 1 / 2.0, 3.0, 5.0, 5.0},         // Levator
+			{3.0, 1.0, 2.0, 5.0, 7.0, 7.0},                 // Splenius (Tertarik maksimal saat menunduk)
+			{2.0, 1 / 2.0, 1.0, 3.0, 5.0, 5.0},             // Trapezius
+			{1 / 3.0, 1 / 5.0, 1 / 3.0, 1.0, 3.0, 3.0},     // Rhomboid
+			{1 / 5.0, 1 / 7.0, 1 / 5.0, 1 / 3.0, 1.0, 1.0}, // QL
+			{1 / 5.0, 1 / 7.0, 1 / 5.0, 1 / 3.0, 1.0, 1.0}, // Erector
+		}
+	case "Lainnya": // Posisi Tidur Salah (Tortikolis, fokus ke Levator)
+		matrixTrigger = [][]float64{
+			{1.0, 3.0, 5.0, 5.0, 7.0, 7.0},                 // Levator (Pemicu utama salah bantal)
+			{1 / 3.0, 1.0, 3.0, 3.0, 5.0, 5.0},             // Splenius
+			{1 / 5.0, 1 / 3.0, 1.0, 1.0, 3.0, 3.0},         // Trapezius
+			{1 / 5.0, 1 / 3.0, 1.0, 1.0, 3.0, 3.0},         // Rhomboid
+			{1 / 7.0, 1 / 5.0, 1 / 3.0, 1 / 3.0, 1.0, 1.0}, // QL
+			{1 / 7.0, 1 / 5.0, 1 / 3.0, 1 / 3.0, 1.0, 1.0}, // Erector
+		}
+	case "Aktivitas Berat": // Membawa Tas Punggung (Fokus ke Rhomboid)
+		matrixTrigger = [][]float64{
+			{1.0, 1.0, 1 / 3.0, 1 / 5.0, 3.0, 3.0},         // Levator
+			{1.0, 1.0, 1 / 3.0, 1 / 5.0, 3.0, 3.0},         // Splenius
+			{3.0, 3.0, 1.0, 1 / 2.0, 5.0, 5.0},             // Trapezius
+			{5.0, 5.0, 2.0, 1.0, 7.0, 7.0},                 // Rhomboid (Penyangga beban tali tas)
+			{1 / 3.0, 1 / 3.0, 1 / 5.0, 1 / 7.0, 1.0, 1.0}, // QL
+			{1 / 3.0, 1 / 3.0, 1 / 5.0, 1 / 7.0, 1.0, 1.0}, // Erector
+		}
+	case "Duduk Belajar": // Duduk Tanpa Sandaran (Fokus ke Erector Spinae & QL)
+		matrixTrigger = [][]float64{
+			{1.0, 1.0, 1 / 3.0, 1 / 3.0, 1 / 5.0, 1 / 7.0}, // Levator
+			{1.0, 1.0, 1 / 3.0, 1 / 3.0, 1 / 5.0, 1 / 7.0}, // Splenius
+			{3.0, 3.0, 1.0, 1.0, 1 / 3.0, 1 / 5.0},         // Trapezius
+			{3.0, 3.0, 1.0, 1.0, 1 / 3.0, 1 / 5.0},         // Rhomboid
+			{5.0, 5.0, 3.0, 3.0, 1.0, 1 / 2.0},             // QL
+			{7.0, 7.0, 5.0, 5.0, 2.0, 1.0},                 // Erector (Penopang utama tulang belakang saat duduk)
+		}
+	default: // Fallback Netral
+		matrixTrigger = [][]float64{{1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}}
+	}
+	weightsTrigger := CalculateAHPWeights(matrixTrigger)
+
+	// 5. PERHITUNGAN GLOBAL SKOR AHP
+	for i := 0; i < nAlt; i++ {
+		areas[i].Score = (weightsLocation[i] * W_Location) +
+			(weightsIntensity[i] * W_Intensity) +
+			(weightsTrigger[i] * W_Trigger)
+	}
+
+	// 6. PERANKINGAN AHP (Sortir Descending)
+	sort.SliceStable(areas, func(i, j int) bool {
+		// Tie-Breaker terakhir: Jika skor AHP masih sama persis, titik dengan intensitas tertinggi menang
+		if areas[i].Score == areas[j].Score {
+			return areas[i].Intensity > areas[j].Intensity
+		}
 		return areas[i].Score > areas[j].Score
 	})
 
-	// Kembalikan nama otot, skor akhir, nama keluhan pemenang, dan intensitas pemenang
+	// Pemenang didapatkan di Index 0
 	return areas[0].Name, areas[0].Score, areas[0].Location, areas[0].Intensity
 }

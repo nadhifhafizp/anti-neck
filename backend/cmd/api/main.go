@@ -1,15 +1,16 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"os"
 
-	"anti-neck/internal/controllers" // Pastikan path ini sesuai dengan modul di go.mod
+	"anti-neck/internal/controllers"
+	"anti-neck/internal/models" // Wajib di-import untuk membaca struct AHPResult saat AutoMigrate
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -22,26 +23,27 @@ func main() {
 			log.Println("Note: .env file not found, using system environment variables")
 		}
 	}
-	// 2. Koneksi Database
+
+	// 2. Koneksi Database menggunakan GORM untuk PostgreSQL
 	connStr := os.Getenv("DB_URL")
 	if connStr == "" {
 		log.Fatal("DB_URL is not set in environment variables")
 	}
 
-	db, err := sql.Open("postgres", connStr)
+	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Gagal koneksi ke database:", err)
 	}
-	defer db.Close()
 
-	// Cek koneksi
-	if err := db.Ping(); err != nil {
-		log.Fatal("Database unreachable:", err)
+	// 3. AutoMigrate: GORM akan otomatis membuatkan tabel ahp_results di PostgreSQL Anda
+	err = db.AutoMigrate(&models.AHPResult{})
+	if err != nil {
+		log.Fatal("Gagal melakukan migrasi database:", err)
 	}
 
 	r := gin.Default()
 
-	// 3. Middleware CORS
+	// 4. Middleware CORS
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
@@ -54,13 +56,11 @@ func main() {
 		c.Next()
 	})
 
-	// 4. Perutean (Routing)
-	// Kita membungkus handler agar bisa menerima instance 'db'
-	r.POST("/api/recommend", func(c *gin.Context) {
-		controllers.ProcessAHP(c, db)
-	})
+	// 5. Perutean (Routing) dengan Controller Baru
+	ahpController := controllers.NewAHPController(db)
+	r.POST("/api/recommend", ahpController.Recommend)
 
-	// 5. Menjalankan Server
+	// 6. Menjalankan Server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

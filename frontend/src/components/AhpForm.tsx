@@ -10,12 +10,14 @@ interface LocationIntensity {
   value: number;
 }
 
-export default function AhpForm({ onResult }: { onResult: (recommendation: string) => void }) {
+// UPDATE 1: onResult sekarang menerima tipe 'any' agar bisa menampung seluruh objek respons AHP
+export default function AhpForm({ onResult }: { onResult: (data: any) => void }) {
   const [npm, setNpm] = useState('');
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([])  ;
-  // State baru untuk menyimpan intensitas masing-masing lokasi
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [intensities, setIntensities] = useState<LocationIntensity[]>([]);
-  const [activity, setActivity] = useState('Duduk Tanpa Sandaran');
+  
+  // UPDATE 2: Set default value sesuai dengan backend
+  const [activity, setActivity] = useState('Menunduk');
   const [loading, setLoading] = useState(false);
 
   const locations = [
@@ -40,21 +42,19 @@ export default function AhpForm({ onResult }: { onResult: (recommendation: strin
     ));
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (intensities.length === 0) return; 
     
     setLoading(true);
 
     try {
-      // HAPUS LOGIKA REDUCE DI SINI. Biarkan AHP di Backend yang memikirkan siapa yang menang!
-      
       const response = await fetch('http://localhost:8080/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           npm,
-          locations: intensities, // Kunci Overpower AHP: Kirim SEMUA data array keluhan!
+          locations: intensities, 
           activity,
         }),
       });
@@ -68,7 +68,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       const data = JSON.parse(rawData); 
 
       if (data.recommendation) {
-        onResult(data.recommendation);
+        // UPDATE 3: Kirim seluruh objek data, bukan cuma string recommendation-nya
+        onResult(data);
       }
     } catch (error) {
       console.error('Fetch/Parsing Error:', error);
@@ -114,10 +115,9 @@ const handleSubmit = async (e: React.FormEvent) => {
           </div>
         </div>
 
-        {/* SLIDER DINAMIS: Muncul untuk setiap lokasi yang dipilih */}
         {intensities.length > 0 && (
           <div className="space-y-6 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-            <label className="block text-sm font-bold text-slate-700 underline">Tingkat Nyeri per Area:</label>
+            <label className="block text-sm font-bold text-slate-700 underline">Tingkat Nyeri per Area (1-10):</label>
             {intensities.map((item) => (
               <div key={item.name} className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -146,10 +146,11 @@ const handleSubmit = async (e: React.FormEvent) => {
             value={activity}
             onChange={(e) => setActivity(e.target.value)}
           >
-            <option>Duduk Tanpa Sandaran</option>
-            <option>Menatap HP/Laptop Terlalu Lama</option>
-            <option>Membawa Beban Berat (Tas Punggung)</option>
-            <option>Posisi Tidur yang Salah</option>
+            {/* UPDATE 4: Sesuaikan value (Menunduk / Duduk Belajar) dengan kode Golang backend */}
+            <option value="Menunduk">Menatap HP/Laptop Terlalu Lama (Menunduk)</option>
+            <option value="Duduk Belajar">Duduk Belajar/Kerja Tanpa Sandaran (Statis)</option>
+            <option value="Aktivitas Berat">Membawa Beban Berat (Tas Punggung)</option>
+            <option value="Lainnya">Lainnya / Posisi Tidur yang Salah</option>
           </select>
         </div>
 
@@ -158,7 +159,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           disabled={loading || selectedLocations.length === 0}
           className="w-full py-7 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-1"
         >
-          {loading ? 'Memproses AHP...' : 'Dapatkan Rekomendasi'}
+          {loading ? 'Memproses Matriks AHP...' : 'Dapatkan Rekomendasi'}
         </Button>
       </form>
     </Card>
