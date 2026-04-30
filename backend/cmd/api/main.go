@@ -30,7 +30,12 @@ func main() {
 		log.Fatal("DB_URL is not set in environment variables")
 	}
 
-	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  connStr,
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{
+		PrepareStmt: false,
+	})
 	if err != nil {
 		log.Fatal("Gagal koneksi ke database:", err)
 	}

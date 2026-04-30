@@ -10,13 +10,12 @@ interface LocationIntensity {
   value: number;
 }
 
-// UPDATE 1: onResult sekarang menerima tipe 'any' agar bisa menampung seluruh objek respons AHP
 export default function AhpForm({ onResult }: { onResult: (data: any) => void }) {
+  // State baru untuk menyimpan Nama
+  const [nama, setNama] = useState('');
   const [npm, setNpm] = useState('');
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [intensities, setIntensities] = useState<LocationIntensity[]>([]);
-  
-  // UPDATE 2: Set default value sesuai dengan backend
   const [activity, setActivity] = useState('Menunduk');
   const [loading, setLoading] = useState(false);
 
@@ -53,6 +52,7 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          nama, // Tambahkan ini agar terkirim ke backend
           npm,
           locations: intensities, 
           activity,
@@ -68,8 +68,8 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
       const data = JSON.parse(rawData); 
 
       if (data.recommendation) {
-        // UPDATE 3: Kirim seluruh objek data, bukan cuma string recommendation-nya
-        onResult(data);
+        // Menyisipkan nama ke dalam objek data yang dikirim ke Dashboard
+        onResult({ ...data, nama: nama });
       }
     } catch (error) {
       console.error('Fetch/Parsing Error:', error);
@@ -82,14 +82,34 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
   return (
     <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
       <form onSubmit={handleSubmit} className="space-y-8">
+        
+        {/* Input Nama Lengkap (Baru) */}
+       <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">Nama Lengkap</label>
+          <input
+            type="text"
+            className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-indigo-500 focus:ring-0 transition-all outline-none"
+            placeholder="Masukkan Nama Anda"
+            value={nama}
+            onChange={(e) => {
+              const onlyLetters = e.target.value.replace(/[0-9]/g, '');
+              setNama(onlyLetters);
+            }}
+            required
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-bold text-slate-700 mb-2">Nomor Pokok Mahasiswa (NPM)</label>
           <input
             type="text"
             className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-indigo-500 focus:ring-0 transition-all outline-none"
-            placeholder="Masukkan NPM Anda"
+            placeholder="Masukkan NPM Anda (Hanya Angka)"
             value={npm}
-            onChange={(e) => setNpm(e.target.value)}
+            onChange={(e) => {
+              const onlyNumbers = e.target.value.replace(/\D/g, '');
+              setNpm(onlyNumbers);
+            }}
             required
           />
         </div>
@@ -146,7 +166,6 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
             value={activity}
             onChange={(e) => setActivity(e.target.value)}
           >
-            {/* UPDATE 4: Sesuaikan value (Menunduk / Duduk Belajar) dengan kode Golang backend */}
             <option value="Menunduk">Menatap HP/Laptop Terlalu Lama (Menunduk)</option>
             <option value="Duduk Belajar">Duduk Belajar/Kerja Tanpa Sandaran (Statis)</option>
             <option value="Aktivitas Berat">Membawa Beban Berat (Tas Punggung)</option>

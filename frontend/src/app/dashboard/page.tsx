@@ -1,80 +1,130 @@
 'use client';
+
 import { useState } from 'react';
 import AhpForm from '../../components/AhpForm';
 import ArView from '../../components/ArView';
 
-export default function Dashboard() {
+// Kamus Tutorial Pijat berdasarkan Jurnal Medis
+const therapyTutorials: Record<string, any> = {
+  "Levator Scapulae": {
+    tips: "Gunakan jari telunjuk dan jari tengah Anda. Tekan dengan lembut area samping leher yang terasa kaku. Lakukan gerakan memutar kecil perlahan selama 1-2 menit sambil mengatur napas.",
+    videoUrl: "https://www.youtube.com/embed/EWXsFikuIvo" // Video dari Rehab Science
+  },
+  "Splenius Capitis": {
+    tips: "Letakkan kedua ibu jari di pangkal tengkorak belakang (bawah kepala). Tekan perlahan mengarah ke atas, tahan selama 30 detik lalu lepaskan. Ulangi 3-5 kali.",
+    videoUrl: "https://www.youtube.com/embed/abIVZ_l-D6Y" // Video dari Dr. Joe Damiani, PT
+  },
+  "Upper Trapezius": {
+    tips: "Pijat area bahu atas Anda menggunakan tangan sisi yang berlawanan (tangan kiri memijat bahu kanan). Remas otot bahu dengan lembut menggunakan seluruh jari selama 1 menit.",
+    videoUrl: "https://www.youtube.com/embed/uNM9bQi2LW4" // Video dari SpineCare Decompression
+  },
+  "Rhomboid Major": {
+    tips: "Karena lokasinya di punggung atas, gunakan bola tenis. Sandarkan punggung pada dinding dengan bola tenis di antara tulang belikat Anda. Gerakkan tubuh naik turun secara perlahan.",
+    videoUrl: "https://www.youtube.com/embed/DGqhnAVhVpk" // Video dari Balanced Motion Clinic
+  },
+  "Erector Spinae": {
+    tips: "Berbaringlah telentang dan tarik kedua lutut ke dada Anda (posisi memeluk lutut). Tahan selama 30 detik untuk meregangkan otot panjang tulang belakang. Hindari pijatan keras secara langsung di area ini.",
+    videoUrl: "https://www.youtube.com/embed/TovFXY7XYco" // Video dari AskDoctorJo
+  },
+  "Quadratus Lumborum": {
+    tips: "Pijat area pinggang samping / punggung bawah dengan ibu jari Anda sambil duduk condong ke depan. Anda juga bisa melakukan gerakan meliuk badan ke kiri dan kanan perlahan.",
+    videoUrl: "https://www.youtube.com/embed/WVVGl0Y0ERA" // Video dari SpineCare Decompression
+  }
+};
+
+export default function DashboardPage() {
   const [result, setResult] = useState<any>(null);
 
   return (
-    <main className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Header */}
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 mb-8">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">A</div>
-            <span className="font-black text-xl tracking-tight text-slate-800">ANTI-NECK</span>
-          </div>
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Web-AR Therapy System</span>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-slate-50 p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        <header className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm">
+          <h1 className="text-2xl font-bold text-indigo-900 flex items-center gap-2">
+            <span className="bg-indigo-600 text-white px-3 py-1 rounded-lg">A</span>
+            ANTI-NECK
+          </h1>
+          <span className="text-sm font-semibold tracking-wider text-slate-400">WEB-AR THERAPY SYSTEM</span>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 pb-12">
-        {/* Kolom Kiri: Form */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-black text-slate-800">Analisis Keluhan</h1>
-            <p className="text-slate-500 text-sm">Masukkan detail pegal Anda untuk mendapatkan titik terapi yang akurat menggunakan metode AHP.</p>
-          </div>
-          {/* Menerima seluruh objek data hasil AHP */}
-          <AhpForm onResult={(res) => setResult(res)} />
-        </div>
-
-        {/* Kolom Kanan: Visualisasi */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Visualisasi Web-AR</h2>
-            <p className="text-slate-500 text-sm">Pindai marker Anda untuk melihat lokasi titik terapi dalam bentuk 3D.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Kolom Kiri: Form */}
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm">
+              <h2 className="text-xl font-bold text-slate-800 mb-2">Analisis Keluhan</h2>
+              <p className="text-slate-500 mb-6 text-sm">
+                Masukkan nama dan detail pegal Anda untuk mendapatkan panduan titik terapi yang akurat menggunakan metode AHP.
+              </p>
+              <AhpForm onResult={setResult} />
+            </div>
           </div>
 
-          <div className="relative group">
-            {result ? (
-              <div className="space-y-4">
-                {/* Alert Hasil - Update untuk menampilkan Skor AHP */}
-                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xl">✨</div>
-                    <div>
-                      <p className="text-xs font-bold text-emerald-600 uppercase tracking-tighter">Rekomendasi Utama</p>
-                      {/* Pastikan mengambil .recommendation dari objek result */}
-                      <h3 className="text-xl font-black text-emerald-900">{result.recommendation}</h3>
-                    </div>
+          {/* Kolom Kanan: AR View & Hasil Rekomendasi */}
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm">
+              <h2 className="text-xl font-bold text-slate-800 mb-2">Visualisasi Web-AR</h2>
+              <p className="text-slate-500 mb-6 text-sm">
+                Pindai marker Anda untuk melihat lokasi titik terapi dalam bentuk 3D.
+              </p>
+
+              {result && (
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex justify-between items-center">
+                  <div>
+                    <p className="text-xs font-bold text-emerald-600 mb-1 uppercase tracking-wider">Rekomendasi Utama</p>
+                    <p className="text-2xl font-black text-emerald-800">{result.recommendation}</p>
                   </div>
-                  
-                  {/* Menampilkan Skor Eigenvector AHP dalam bentuk % (Hanya untuk UI Skripsi) */}
-                  {result.score && (
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-emerald-500 uppercase">Bobot AHP</p>
-                      <p className="text-xl font-black text-emerald-700">{(result.score * 100).toFixed(1)}%</p>
-                    </div>
-                  )}
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-emerald-600 mb-1 uppercase tracking-wider">Bobot AHP</p>
+                    <p className="text-2xl font-black text-emerald-800">
+                      {(result.score * 100).toFixed(1)}%
+                    </p>
+                  </div>
                 </div>
+              )}
 
-                {/* Viewport AR */}
-                <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-                  {/* Pastikan hanya mengirimkan string nama ke Iframe AR */}
-                  <ArView recommendation={result.recommendation} />
+              {/* Komponen Kamera AR */}
+              <ArView recommendation={result?.recommendation} />
+            </div>
+
+            {/* SEKSI BARU: Sapaan, Tips, dan Video Muncul di sini setelah Submit */}
+            {result && result.recommendation && (
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <h3 className="text-2xl font-extrabold text-indigo-700 mb-2">
+                  Hai, {result.nama}! 👋
+                </h3>
+                <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+                  Berdasarkan hasil analisis terhadap keluhan Anda, area otot yang paling terdampak adalah <strong className="text-indigo-600 text-base">{result.recommendation}</strong>. Berikut adalah panduan terapi mandiri untuk Anda:
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Teks Panduan Memijat */}
+                  <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
+                    <h4 className="font-bold text-indigo-800 mb-3 flex items-center gap-2">
+                      💡 Panduan Pijat Medis
+                    </h4>
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      {therapyTutorials[result.recommendation]?.tips || "Tidak ada panduan tersedia untuk otot ini."}
+                    </p>
+                  </div>
+
+                  {/* Video YouTube Terapi */}
+                  <div className="rounded-xl overflow-hidden shadow-sm bg-slate-100 border border-slate-200">
+                    <iframe 
+                      width="100%" 
+                      height="200" 
+                      src={therapyTutorials[result.recommendation]?.videoUrl} 
+                      title="Video Terapi Mandiri"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      allowFullScreen
+                      className="w-full h-full object-cover"
+                    ></iframe>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="aspect-video lg:h-145 w-full bg-slate-200 rounded-3xl border-4 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 gap-4 transition-all group-hover:bg-slate-200/50">
-                <div className="text-5xl opacity-20">📸</div>
-                <p className="font-bold text-sm uppercase tracking-widest opacity-40">Menunggu Analisis Form...</p>
               </div>
             )}
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
