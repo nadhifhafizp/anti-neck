@@ -1,0 +1,20 @@
+# Root .gitignore
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# Backend
+backend/*.exe
+backend/main
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env*
+
+# OS
+.DS_Store
+Thumbs.db

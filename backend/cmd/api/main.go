@@ -1,3 +1,4 @@
+// backend/cmd/api/main.go
 package main
 
 import (
@@ -5,7 +6,7 @@ import (
 	"os"
 
 	"anti-neck/internal/controllers"
-	"anti-neck/internal/models" // Wajib di-import untuk membaca struct AHPResult saat AutoMigrate
+	"anti-neck/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -14,17 +15,24 @@ import (
 )
 
 func main() {
-	// 1. Load file .env
-	err := godotenv.Load()
-	if err != nil {
-		// Jika gagal, coba load manual dari root (jika main.go ada di subfolder)
-		err = godotenv.Load("../../.env")
+	// Load .env hanya di local development
+	// Di production (Render), env vars sudah di-set via dashboard
+	if os.Getenv("ENVIRONMENT") != "production" {
+		err := godotenv.Load()
 		if err != nil {
-			log.Println("Note: .env file not found, using system environment variables")
+			err = godotenv.Load("../../.env")
+			if err != nil {
+				log.Println("Note: .env file not found, using system environment variables")
+			}
 		}
 	}
 
-	// 2. Koneksi Database menggunakan GORM untuk PostgreSQL
+	// Set Gin mode berdasarkan environment
+	if os.Getenv("ENVIRONMENT") == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Koneksi Database
 	connStr := os.Getenv("DB_URL")
 	if connStr == "" {
 		log.Fatal("DB_URL is not set in environment variables")
@@ -40,7 +48,7 @@ func main() {
 		log.Fatal("Gagal koneksi ke database:", err)
 	}
 
-	// 3. AutoMigrate: GORM akan otomatis membuatkan tabel ahp_results di PostgreSQL Anda
+	// AutoMigrate
 	err = db.AutoMigrate(&models.AHPResult{})
 	if err != nil {
 		log.Fatal("Gagal melakukan migrasi database:", err)
@@ -48,9 +56,14 @@ func main() {
 
 	r := gin.Default()
 
-	// 4. Middleware CORS
+	// CORS - Update untuk production
+	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "*" // Default untuk development
+	}
+
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
@@ -61,11 +74,19 @@ func main() {
 		c.Next()
 	})
 
-	// 5. Perutean (Routing) dengan Controller Baru
+	// Health check endpoint - PENTING untuk Render!
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":  "ok",
+			"service": "anti-neck-api",
+		})
+	})
+
+	// Routes
 	ahpController := controllers.NewAHPController(db)
 	r.POST("/api/recommend", ahpController.Recommend)
 
-	// 6. Menjalankan Server
+	// Port dari environment variable
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

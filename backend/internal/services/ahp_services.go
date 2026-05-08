@@ -1,7 +1,8 @@
 package services
 
 import (
-	"anti-neck/internal/models"
+	"anti-neck/internal/models" // Sesuaikan dengan struktur folder Anda
+	"fmt"
 	"sort"
 )
 
@@ -39,7 +40,7 @@ func CalculateAHPWeights(matrix [][]float64) []float64 {
 	return weights
 }
 
-// 2. Fungsi Menghitung Consistency Ratio (CR) - Opsional untuk logging saat sidang
+// 2. Fungsi Menghitung Consistency Ratio (CR) - Untuk logging saat sidang
 func CalculateCR(matrix [][]float64, weights []float64) float64 {
 	n := len(matrix)
 	lambdaMax := 0.0
@@ -66,13 +67,13 @@ func CalculateCR(matrix [][]float64, weights []float64) float64 {
 	return ci / ri
 }
 
-// 3. Fungsi Utama Controller AHP (Sesuai signature proyek Anda)
+// 3. Fungsi Utama Controller AHP
 func CalculateAHP(locations []models.LocationInput, activity string) (string, float64, string, int) {
-	// Bobot Kriteria Utama AHP (Didapat dari literatur)
+	// Bobot Kriteria Utama AHP (Berdasarkan Tabel Normalisasi Matriks Bab 4)
 	const (
-		W_Location  = 0.634
-		W_Intensity = 0.106
-		W_Trigger   = 0.260
+		W_Location  = 0.648
+		W_Intensity = 0.230
+		W_Trigger   = 0.122
 	)
 
 	// 6 Alternatif Titik Terapi
@@ -136,6 +137,8 @@ func CalculateAHP(locations []models.LocationInput, activity string) (string, fl
 		matrixLocation = [][]float64{{1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}}
 	}
 	weightsLocation := CalculateAHPWeights(matrixLocation)
+	crLocation := CalculateCR(matrixLocation, weightsLocation)
+	fmt.Printf("[AHP Log] CR Matriks Lokasi: %.4f\n", crLocation)
 
 	// 3. MATRIKS K2: INTENSITAS NYERI (Dinamis dari input form rasio 1-10)
 	nAlt := len(areas)
@@ -165,6 +168,8 @@ func CalculateAHP(locations []models.LocationInput, activity string) (string, fl
 		}
 	}
 	weightsIntensity := CalculateAHPWeights(matrixIntensity)
+	crIntensity := CalculateCR(matrixIntensity, weightsIntensity)
+	fmt.Printf("[AHP Log] CR Matriks Intensitas: %.4f\n", crIntensity)
 
 	// 4. MATRIKS K3: AKTIVITAS PEMICU (Pemecah kondisi seri antar otot)
 	var matrixTrigger [][]float64
@@ -209,6 +214,8 @@ func CalculateAHP(locations []models.LocationInput, activity string) (string, fl
 		matrixTrigger = [][]float64{{1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}}
 	}
 	weightsTrigger := CalculateAHPWeights(matrixTrigger)
+	crTrigger := CalculateCR(matrixTrigger, weightsTrigger)
+	fmt.Printf("[AHP Log] CR Matriks Pemicu: %.4f\n", crTrigger)
 
 	// 5. PERHITUNGAN GLOBAL SKOR AHP
 	for i := 0; i < nAlt; i++ {
@@ -225,6 +232,9 @@ func CalculateAHP(locations []models.LocationInput, activity string) (string, fl
 		}
 		return areas[i].Score > areas[j].Score
 	})
+
+	// Log hasil rekomendasi tertinggi untuk sidang
+	fmt.Printf("[AHP Log] Rekomendasi Teratas: %s (Skor Global: %.4f)\n", areas[0].Name, areas[0].Score)
 
 	// Pemenang didapatkan di Index 0
 	return areas[0].Name, areas[0].Score, areas[0].Location, areas[0].Intensity
