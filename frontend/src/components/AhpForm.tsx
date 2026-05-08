@@ -10,8 +10,6 @@ interface LocationIntensity {
   value: number;
 }
 
-// MODIFIKASI DISINI: Membaca dari environment variable
-// Jika tidak ada (di lokal), dia otomatis balik ke localhost:8080
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export default function AhpForm({ onResult }: { onResult: (data: any) => void }) {
@@ -51,7 +49,6 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
     setLoading(true);
 
     try {
-      // MODIFIKASI DISINI: Menggunakan variable API_URL
       const response = await fetch(`${API_URL}/api/recommend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,6 +81,19 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
 
   return (
     <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
+      
+      {/* SEKSI BARU: Panduan Langkah Penggunaan */}
+      <div className="mb-8 p-5 bg-indigo-50 border border-indigo-100 rounded-xl">
+        <h3 className="text-sm font-bold text-indigo-900 mb-3">📋 Cara Penggunaan:</h3>
+        <ol className="text-sm text-indigo-800 list-decimal list-inside space-y-2">
+          <li>Siapkan <strong>Hiro Marker</strong> (lihat di kolom kanan).</li>
+          <li>Isi data diri dan keluhan Anda pada form di bawah ini.</li>
+          <li>Klik tombol <strong>"Dapatkan Rekomendasi"</strong>.</li>
+          <li>Izinkan akses kamera pada browser Anda.</li>
+          <li>Arahkan kamera ke Hiro Marker untuk melihat titik pijat 3D.</li>
+        </ol>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-8">
         
         <div>
