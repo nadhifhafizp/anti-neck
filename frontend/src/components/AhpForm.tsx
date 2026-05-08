@@ -10,8 +10,11 @@ interface LocationIntensity {
   value: number;
 }
 
+// MODIFIKASI DISINI: Membaca dari environment variable
+// Jika tidak ada (di lokal), dia otomatis balik ke localhost:8080
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 export default function AhpForm({ onResult }: { onResult: (data: any) => void }) {
-  // State baru untuk menyimpan Nama
   const [nama, setNama] = useState('');
   const [npm, setNpm] = useState('');
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -48,11 +51,12 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/api/recommend', {
+      // MODIFIKASI DISINI: Menggunakan variable API_URL
+      const response = await fetch(`${API_URL}/api/recommend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nama, // Tambahkan ini agar terkirim ke backend
+          nama,
           npm,
           locations: intensities, 
           activity,
@@ -68,7 +72,6 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
       const data = JSON.parse(rawData); 
 
       if (data.recommendation) {
-        // Menyisipkan nama ke dalam objek data yang dikirim ke Dashboard
         onResult({ ...data, nama: nama });
       }
     } catch (error) {
@@ -83,8 +86,7 @@ export default function AhpForm({ onResult }: { onResult: (data: any) => void })
     <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
       <form onSubmit={handleSubmit} className="space-y-8">
         
-        {/* Input Nama Lengkap (Baru) */}
-       <div>
+        <div>
           <label className="block text-sm font-bold text-slate-700 mb-2">Nama Lengkap</label>
           <input
             type="text"
