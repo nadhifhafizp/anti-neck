@@ -8,6 +8,7 @@
 # Backend
 backend/*.exe
 backend/main
+backend/.env*
 
 # Frontend
 frontend/node_modules/
