@@ -7,7 +7,7 @@
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <script>
-        // --- KOMPONEN OVERPOWER: SELALU DI ATAS ---
+        // --- KOMPONEN OVERPOWER UNTUK TEKS ---
         AFRAME.registerComponent('always-on-top', {
             init: function () {
                 this.el.addEventListener('textfontset', () => {
@@ -18,6 +18,98 @@
                         mesh.renderOrder = 9999; 
                     }
                 });
+            }
+        });
+
+        // --- KOMPONEN GESTURE HANDLER (ROTASI X/Y & ZOOM) ---
+        AFRAME.registerComponent('gesture-handler', {
+            init: function () {
+                this.isDragging = false;
+                this.previousMousePosition = { x: 0, y: 0 };
+                this.initialDistance = 0;
+                this.initialScale = { x: 1, y: 1, z: 1 };
+                
+                // MOUSE EVENTS (PC) - Rotasi X dan Y
+                document.addEventListener('mousedown', (e) => { 
+                    this.isDragging = true; 
+                    this.previousMousePosition = { x: e.offsetX, y: e.offsetY }; 
+                });
+                document.addEventListener('mouseup', () => { this.isDragging = false; });
+                document.addEventListener('mousemove', (e) => {
+                    if (this.isDragging) {
+                        const deltaX = e.offsetX - this.previousMousePosition.x;
+                        const deltaY = e.offsetY - this.previousMousePosition.y;
+                        const currentRotation = this.el.getAttribute('rotation');
+                        
+                        // Rotasi: Sumbu X (atas/bawah) dan Sumbu Y (kanan/kiri)
+                        this.el.setAttribute('rotation', {
+                            x: currentRotation.x + deltaY * 0.5, 
+                            y: currentRotation.y + deltaX * 0.8, 
+                            z: currentRotation.z  
+                        });
+                        this.previousMousePosition = { x: e.offsetX, y: e.offsetY };
+                    }
+                });
+
+                // SCROLL WHEEL (PC) - Zoom In/Out
+                document.addEventListener('wheel', (e) => {
+                    e.preventDefault(); // Mencegah scrolling halaman
+                    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1; // Scroll bawah = kecil, atas = besar
+                    const currentScale = this.el.getAttribute('scale');
+                    
+                    // Batasi zoom (minimal 0.5x, maksimal 3x)
+                    let newScaleX = currentScale.x * scaleFactor;
+                    newScaleX = Math.max(0.5, Math.min(newScaleX, 3)); 
+                    
+                    this.el.setAttribute('scale', `${newScaleX} ${newScaleX} ${newScaleX}`);
+                }, { passive: false });
+
+                // TOUCH EVENTS (Mobile) - Pinch Zoom & Rotasi X/Y
+                document.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 1) { // 1 Jari = Drag (Rotasi)
+                        this.isDragging = true;
+                        this.previousMousePosition = { x: e.touches[0].pageX, y: e.touches[0].pageY };
+                    } else if (e.touches.length === 2) { // 2 Jari = Pinch (Zoom)
+                        this.isDragging = false; // Matikan drag saat zoom
+                        this.initialDistance = this.getDistance(e.touches);
+                        this.initialScale = this.el.getAttribute('scale');
+                    }
+                });
+
+                document.addEventListener('touchend', () => { this.isDragging = false; });
+
+                document.addEventListener('touchmove', (e) => {
+                    if (this.isDragging && e.touches.length === 1) { // Logic Rotasi 1 Jari
+                        const deltaX = e.touches[0].pageX - this.previousMousePosition.x;
+                        const deltaY = e.touches[0].pageY - this.previousMousePosition.y;
+                        const currentRotation = this.el.getAttribute('rotation');
+                        
+                        this.el.setAttribute('rotation', {
+                            x: currentRotation.x + deltaY * 0.5,
+                            y: currentRotation.y + deltaX * 0.8,
+                            z: currentRotation.z
+                        });
+                        this.previousMousePosition = { x: e.touches[0].pageX, y: e.touches[0].pageY };
+                    } 
+                    else if (e.touches.length === 2) { // Logic Zoom Pinch 2 Jari
+                        e.preventDefault(); // Mencegah layar ter-zoom native browser
+                        const currentDistance = this.getDistance(e.touches);
+                        const scaleFactor = currentDistance / this.initialDistance;
+                        
+                        // Batasi zoom (minimal 0.5x, maksimal 3x dari skala AWAL PINCH)
+                        let newScaleX = this.initialScale.x * scaleFactor;
+                        newScaleX = Math.max(0.5, Math.min(newScaleX, 3));
+
+                        this.el.setAttribute('scale', `${newScaleX} ${newScaleX} ${newScaleX}`);
+                    }
+                }, { passive: false });
+            },
+
+            // Fungsi pembantu untuk menghitung jarak antar 2 jari (Pinch)
+            getDistance: function(touches) {
+                const dx = touches[0].pageX - touches[1].pageX;
+                const dy = touches[0].pageY - touches[1].pageY;
+                return Math.sqrt(dx * dx + dy * dy);
             }
         });
     </script>
@@ -34,7 +126,8 @@
         </a-assets>
 
         <a-marker preset="hiro">
-            <a-entity id="model-wrapper" rotation="0 0 0">
+            <a-entity id="model-wrapper" rotation="0 0 0" scale="1 1 1" gesture-handler>
+                
                 <a-entity 
                     gltf-model="#anatomy" 
                     scale="0.015 0.015 0.015" 
@@ -91,54 +184,6 @@
         }
         
         label.setAttribute('value', "TITIK: " + recommendation);
-        
-        // === LOGIKA ROTASI YANG DIPERBAIKI (ANTI-MIRING) ===
-        let isDragging = false;
-        let previousMousePosition = { x: 0, y: 0 };
-        const modelWrapper = document.getElementById('model-wrapper');
-
-        // Mouse Events (Untuk Komputer)
-        document.addEventListener('mousedown', (e) => { 
-            isDragging = true; 
-            previousMousePosition = { x: e.offsetX, y: e.offsetY }; 
-        });
-        document.addEventListener('mouseup', () => { isDragging = false; });
-        document.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                const deltaX = e.offsetX - previousMousePosition.x;
-                const currentRotation = modelWrapper.getAttribute('rotation');
-                
-                // HANYA sumbu Y yang diubah agar model berputar ke kiri/kanan. 
-                // Sumbu X dan Z dikunci ke 0 agar badan selalu tegak lurus.
-                modelWrapper.setAttribute('rotation', {
-                    x: 0, 
-                    y: currentRotation.y + deltaX * 0.8, 
-                    z: 0  
-                });
-                previousMousePosition = { x: e.offsetX, y: e.offsetY };
-            }
-        });
-
-        // Touch Events (Untuk Layar Sentuh / HP)
-        document.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            previousMousePosition = { x: e.touches[0].pageX, y: e.touches[0].pageY };
-        });
-        document.addEventListener('touchend', () => { isDragging = false; });
-        document.addEventListener('touchmove', (e) => {
-            if (isDragging) {
-                const deltaX = e.touches[0].pageX - previousMousePosition.x;
-                const currentRotation = modelWrapper.getAttribute('rotation');
-                
-                // Sama seperti Mouse, hanya sumbu Y yang dirotasi
-                modelWrapper.setAttribute('rotation', {
-                    x: 0,
-                    y: currentRotation.y + deltaX * 0.8,
-                    z: 0
-                });
-                previousMousePosition = { x: e.touches[0].pageX, y: e.touches[0].pageY };
-            }
-        });
     </script>
 </body>
 </html>
